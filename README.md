@@ -4,7 +4,9 @@
     docker-compose up -d
     
 ### populate es-index
+apdapt `host` in `populating_es_index.py` and run  
 
+    python populating_es_index.py
 
 ### in some browser
 1. goto
