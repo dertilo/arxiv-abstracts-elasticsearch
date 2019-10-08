@@ -1,3 +1,4 @@
+import multiprocessing
 import os
 from multiprocessing.pool import Pool
 from time import sleep, time
@@ -18,13 +19,35 @@ def init_fun(data_supplier):
 
 def worker_fun(file:str):
     global data
-    dicts_g = (d for d in read_jsonl(file, limit=data['limit']))
-    actions_g = (build_es_action(d,data['es_index_name'],data['es_type']) for d in dicts_g)
+    logs_file = get_logs_file_name(file)
+    num_to_skip = get_num_to_skip(logs_file)
+    dicts_g = (d for d in data_io.read_jsonl(file, limit=data['limit'],num_to_skip=num_to_skip))
 
-    failed_docs = (pop_exception(d) for ok,d in helpers.streaming_bulk(data['es_client'],actions_g , chunk_size=1_000,
-                           yield_ok=False, raise_on_error=True))
+    actions_g = (build_es_action(d,data['es_index_name'],data['es_type'],data['op_type']) for d in dicts_g)
+    results_g = helpers.streaming_bulk(data['es_client'],actions_g ,
+                                       chunk_size=1_000,
+                                       yield_ok=True,
+                                       raise_on_error=False,
+                                       raise_on_exception=False)
 
-    data_io.write_jsonl('failed_%s.jsonl'%file.split('/')[-1].replace('.txt.gz',''), failed_docs)
+    for k,(ok, d) in enumerate(results_g):
+        if not ok and 'index' in d:
+            fail = pop_exception(d)
+            data_io.write_jsonl(logs_file,[fail],mode='ab')
+        elif k%100_000==0:
+            data_io.write_jsonl(logs_file,[{'num_indexed':num_to_skip+k}],mode='ab')
+
+def get_num_to_skip(logs_file):
+    num_to_skip = 0
+    if os.path.isfile(logs_file):
+        dicts = [d for d in data_io.read_jsonl(logs_file) if 'num_indexed' in d]
+        if len(dicts) > 0:
+            num_to_skip = dicts[-1]['num_indexed']
+            print('skipped %d for %s'%(num_to_skip,logs_file))
+    return num_to_skip
+
+def get_logs_file_name(file):
+    return 'es_indexing_logs_%s.jsonl' % file.split('/')[-1].replace('.txt.gz', '')
 
 def populate_es_parallel_pool(files, es_index_name, es_type, limit=None, num_processes = 4, **kwargs):
     def data_supplier():
@@ -32,7 +55,8 @@ def populate_es_parallel_pool(files, es_index_name, es_type, limit=None, num_pro
             'es_client':build_es_client(),
             'limit':limit,
             'es_index_name':es_index_name,
-            'es_type':es_type
+            'es_type':es_type,
+            'op_type':'index'
         }
         data.update(kwargs)
         return data
@@ -41,11 +65,11 @@ def populate_es_parallel_pool(files, es_index_name, es_type, limit=None, num_pro
         list(pool.imap_unordered(worker_fun, files,chunksize=1))
 
 if __name__ == "__main__":
-    INDEX_NAME = "test"
+    INDEX_NAME = "documents"
     TYPE = "paper"
     es = build_es_client()
 
-    es.indices.delete(index=INDEX_NAME, ignore=[400, 404])
+    # es.indices.delete(index=INDEX_NAME, ignore=[400, 404])
     es.indices.create(index=INDEX_NAME, ignore=400)
     sleep(3)
 
@@ -53,7 +77,8 @@ if __name__ == "__main__":
 
     start = time()
     files = [path + '/' + file_name for file_name in os.listdir(path) if file_name.endswith('txt.gz')]
-    populate_es_parallel_pool(files[:4], INDEX_NAME, TYPE, limit=500_000)
+    num_processes = 8
+    populate_es_parallel_pool(files, INDEX_NAME, TYPE,num_processes=num_processes)
     dur = time()-start
 
     sleep(3)
