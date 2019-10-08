@@ -22,8 +22,7 @@ if __name__ == "__main__":
 
     INDEX_NAME = "sample-index"
     TYPE = "document"
-    # host = 'localhost' # or somewhere else!
-    host = 'gunther' # or somewhere else!
+    host = 'localhost' # or somewhere else!
     es = Elasticsearch(hosts=[{"host": host, "port": 9200}])
     es.indices.delete(index=INDEX_NAME, ignore=[400, 404])
     es.indices.create(index=INDEX_NAME, ignore=400)
