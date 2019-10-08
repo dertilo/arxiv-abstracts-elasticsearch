@@ -27,7 +27,7 @@ if __name__ == "__main__":
 
     path = '/docker-share/data/MAG_papers'
     files = [path + '/' + file_name for file_name in os.listdir(path) if file_name.endswith('txt.gz')]
-    populate_es_streaming_bulk(es,files,INDEX_NAME,TYPE)
+    populate_es_streaming_bulk(es,files,INDEX_NAME,TYPE,limit=1000_0000)
 
     count = es.count(index=INDEX_NAME, doc_type=TYPE, body={"query": {"match_all": {}}})['count']
     print("you've got an es-index of %d documents"%count)
