@@ -34,8 +34,8 @@ if __name__ == "__main__":
     path = '/docker-share/data/MAG_papers'
     files = [path + '/' + file_name for file_name in os.listdir(path) if file_name.endswith('txt.gz') and 'mag_papers_10.txt.gz'!=file_name]
     limit = 1000_000
-    num_processes=4
     print('streaming-speed: %0.2f docs per second' % benchmark_speed(lambda :populate_es_streaming_bulk(build_es_client(), [files[0]], INDEX_NAME, TYPE, limit=limit)))
-    print('parallel-bulk-speed: %0.2f docs per second'%benchmark_speed(lambda :populate_es_parallel_bulk(build_es_client(),[files[0]],INDEX_NAME,TYPE,limit=limit,num_processes=num_processes)))
-    print('parallel-pool-speed: %0.2f docs per second'%benchmark_speed(lambda :populate_es_parallel_pool(files[:num_processes],INDEX_NAME,TYPE,limit=int(limit/num_processes),num_processes=num_processes)))
+    for num_processes in [1,2,4,8]:
+        print('%d processes parallel-bulk-speed: %0.2f docs per second'%(num_processes,benchmark_speed(lambda :populate_es_parallel_bulk(build_es_client(),[files[0]],INDEX_NAME,TYPE,limit=limit,num_processes=num_processes))))
+        print('%d processes parallel-pool-speed: %0.2f docs per second'%(num_processes,benchmark_speed(lambda :populate_es_parallel_pool(files[:num_processes],INDEX_NAME,TYPE,limit=int(limit/num_processes),num_processes=num_processes))))
 
