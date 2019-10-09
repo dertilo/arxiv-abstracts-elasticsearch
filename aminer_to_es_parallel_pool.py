@@ -1,5 +1,7 @@
 import multiprocessing
 import os
+import pathlib
+import shutil
 from multiprocessing.pool import Pool
 from time import sleep, time
 from elasticsearch import helpers
@@ -20,6 +22,8 @@ def init_fun(data_supplier):
 def worker_fun(file:str):
     global data
     logs_file = get_logs_file_name(file,data['es_index_name'],data['es_type'])
+    if data['from_scratch'] and os.path.isfile(logs_file):
+        os.remove(logs_file)
     num_to_skip = get_num_to_skip(logs_file)
     dicts_g = (d for d in data_io.read_jsonl(file, limit=data['limit'],num_to_skip=num_to_skip))
 
@@ -48,18 +52,18 @@ def get_num_to_skip(logs_file):
 
 def get_logs_file_name(file,es_index_name,es_type):
     log_dir = '%s_%s_logs'%(es_index_name,es_type)
-    if not os.path.isdir(log_dir):
-        os.mkdir(log_dir)
+    pathlib.Path(log_dir).mkdir(parents=True, exist_ok=True)
     return log_dir+'/es_indexing_logs_%s.jsonl' % file.split('/')[-1].replace('.txt.gz', '')
 
-def populate_es_parallel_pool(files, es_index_name, es_type, limit=None, num_processes = 4, **kwargs):
+def populate_es_parallel_pool(files, es_index_name, es_type, limit=None, num_processes = 4, from_scratch=False,**kwargs):
     def data_supplier():
         data = {
             'es_client':build_es_client(),
             'limit':limit,
             'es_index_name':es_index_name,
             'es_type':es_type,
-            'op_type':'index'
+            'op_type':'index',
+            'from_scratch':from_scratch
         }
         data.update(kwargs)
         return data
