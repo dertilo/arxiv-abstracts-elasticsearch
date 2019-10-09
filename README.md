@@ -26,30 +26,6 @@ apdapt `host` in `populating_es_index.py` and run  [populating_es_minimal_exampl
 
   
   
-### benchmarking indexing speed
-    populating es-index of 1000000 documents took: 157.97 seconds
-    streaming-speed: 6330.21 docs per second
-    
-    populating es-index of 1000000 documents took: 104.89 seconds
-    1 processes parallel-bulk-speed: 9534.04 docs per second
-    
-    populating es-index of 1000000 documents took: 155.87 seconds
-    1 processes parallel-pool-speed: 6415.42 docs per second
-    
-    populating es-index of 1000000 documents took: 94.28 seconds
-    2 processes parallel-bulk-speed: 10606.79 docs per second
-    
-    populating es-index of 1000000 documents took: 96.38 seconds
-    2 processes parallel-pool-speed: 10375.75 docs per second
-    
-    populating es-index of 1000000 documents took: 90.27 seconds
-    4 processes parallel-bulk-speed: 11078.32 docs per second
-    
-    populating es-index of 1000000 documents took: 54.93 seconds
-    4 processes parallel-pool-speed: 18206.30 docs per second
-    
-    populating es-index of 1000000 documents took: 89.52 seconds
-    8 processes parallel-bulk-speed: 11171.00 docs per second
-    
-    populating es-index of 1000000 documents took: 36.03 seconds
-    8 processes parallel-pool-speed: 27756.82 docs per second
+### [benchmarking indexing speed](benchmark_speed.py)
+parallelization can help  
+ ![indexing-speed](images/benchmarking_indexing_speed.png)

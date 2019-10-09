@@ -1,1 +1,2 @@
 elasticsearch
+util@git+https://git@github.com/dertilo/util.git#egg=util

@@ -1,4 +1,5 @@
 import os
+import pandas
 from time import time, sleep
 from util import data_io
 from aminer_to_es_parallel_bulk import populate_es_parallel_bulk
@@ -53,5 +54,13 @@ if __name__ == "__main__":
         print('%d processes parallel-pool-speed: %0.2f docs per second' % (num_processes, speed))
 
     benchmark_jsonl = 'speed_benchmark.jsonl'
-    data_io.write_jsonl(benchmark_jsonl, speeds)
-
+    # data_io.write_jsonl(benchmark_jsonl, speeds)
+    path = ''#'/home/tilo/gunther/tilos_meta_project/elasticsearching'
+    data = list(data_io.read_jsonl(path + '/' + benchmark_jsonl))
+    data = [{d['method']:d['speed'],'n':d['num-processes']} for d in data]
+    df = pandas.DataFrame(data=data)
+    ax = df.plot.bar(x='n',width=1)
+    ax.set_xlabel('number of processes')
+    ax.set_ylabel('indexing speed in docs/sec')
+    from matplotlib import pyplot as plt
+    plt.savefig('benchmarking_indexing_speed.png')
