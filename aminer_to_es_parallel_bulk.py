@@ -20,7 +20,7 @@ def populate_es_parallel_bulk(es, files, es_index_name, es_type, limit=None, num
                                       chunk_size=1000,
                                       raise_on_exception=False,
                                       raise_on_error=False)
-    failed_g = (pop_exception(d) for ok,d in tqdm(results_g) if not ok)
+    failed_g = (pop_exception(d) for ok,d in tqdm(results_g) if not ok and d.get('create',{}).get('status',200)!=409)
     data_io.write_jsonl('failed.jsonl',failed_g)
 
 
@@ -36,7 +36,7 @@ if __name__ == "__main__":
     path = '/docker-share/data/MAG_papers'
     start = time()
     files = [path + '/' + file_name for file_name in os.listdir(path) if file_name.endswith('txt.gz')]
-    populate_es_parallel_bulk(es, files, INDEX_NAME, TYPE, limit=2000_000)
+    populate_es_parallel_bulk(es, files, INDEX_NAME, TYPE, limit=200_000)
     dur = time()-start
 
     sleep(3)
