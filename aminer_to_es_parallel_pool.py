@@ -19,7 +19,7 @@ def init_fun(data_supplier):
 
 def worker_fun(file:str):
     global data
-    logs_file = get_logs_file_name(file)
+    logs_file = get_logs_file_name(file,data['es_index_name'],data['es_type'])
     num_to_skip = get_num_to_skip(logs_file)
     dicts_g = (d for d in data_io.read_jsonl(file, limit=data['limit'],num_to_skip=num_to_skip))
 
@@ -46,8 +46,11 @@ def get_num_to_skip(logs_file):
             print('skipped %d for %s'%(num_to_skip,logs_file))
     return num_to_skip
 
-def get_logs_file_name(file):
-    return 'es_indexing_logs_%s.jsonl' % file.split('/')[-1].replace('.txt.gz', '')
+def get_logs_file_name(file,es_index_name,es_type):
+    log_dir = '%s_%s_logs'%(es_index_name,es_type)
+    if not os.path.isdir(log_dir):
+        os.mkdir(log_dir)
+    return log_dir+'/es_indexing_logs_%s.jsonl' % file.split('/')[-1].replace('.txt.gz', '')
 
 def populate_es_parallel_pool(files, es_index_name, es_type, limit=None, num_processes = 4, **kwargs):
     def data_supplier():
@@ -84,3 +87,7 @@ if __name__ == "__main__":
     sleep(3)
     count = es.count(index=INDEX_NAME, doc_type=TYPE, body={"query": {"match_all": {}}})['count']
     print("populating es-index of %d documents took: %0.2f seconds"%(count,dur))
+
+'''
+populating es-index of 208915369 documents took: 16312.36 seconds
+'''
