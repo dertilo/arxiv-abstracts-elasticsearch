@@ -11,7 +11,8 @@ from es_util import build_es_action, build_es_client
 
 
 def pop_exception(d):
-    d['index'].pop('exception')
+    if 'exception' in d['index']:
+        d['index'].pop('exception')
     return d
 
 data = None
@@ -47,7 +48,7 @@ def get_num_to_skip(logs_file):
         dicts = [d for d in data_io.read_jsonl(logs_file) if 'num_indexed' in d]
         if len(dicts) > 0:
             num_to_skip = dicts[-1]['num_indexed']
-            print('skipped %d for %s'%(num_to_skip,logs_file))
+            print('skipping %d for %s'%(num_to_skip,logs_file))
     return num_to_skip
 
 def get_logs_file_name(file,es_index_name,es_type):
