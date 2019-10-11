@@ -6,12 +6,12 @@ services:
     environment:
       - node.name=es01
       - discovery.type=single-node
-      - "ES_JAVA_OPTS=-Xms256M -Xmx256M"
-    ulimits:
-      nproc: 65535
-      memlock:
-        soft: -1
-        hard: -1
+      - "ES_JAVA_OPTS=-Xms1G -Xmx10G"
+#    ulimits:
+#      nproc: 65535
+#      memlock:
+#        soft: -1
+#        hard: -1
 
     cap_add:
       - ALL
@@ -21,13 +21,13 @@ services:
       update_config:
         parallelism: 1
         delay: 10s
-      resources:
-        limits:
-          cpus: '1'
-          memory: 256M
-        reservations:
-          cpus: '1'
-          memory: 256M
+#      resources:
+#        limits:
+#          cpus: '16'
+#          memory: 10G
+#        reservations:
+#          cpus: '1'
+#          memory: 256M
       restart_policy:
         condition: on-failure
         delay: 5s
@@ -88,6 +88,102 @@ services:
       - elastic
     depends_on:
       - 'elasticsearch'
+
+  auditbeat:
+    image: docker.elastic.co/beats/auditbeat:7.2.0
+    command: auditbeat -e -strict.perms=false
+    user: root
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    cap_add: ['AUDIT_CONTROL', 'AUDIT_READ']
+    pid: "host"
+    volumes:
+    #   - ${PWD}/configs/auditbeat.docker.yml:/usr/share/auditbeat/auditbeat.yml
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - elastic
+  metricbeat:
+    image: docker.elastic.co/beats/metricbeat:7.2.0
+    # command: --strict.perms=false
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    cap_add:
+      - AUDIT_CONTROL
+      - AUDIT_READ
+    volumes:
+      # - ${PWD}/configs/metricbeat.docker.yml:/usr/share/metricbeat/metricbeat.yml
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /sys/fs/cgroup:/hostfs/sys/fs/cgroup:ro
+      - /proc:/hostfs/proc:ro
+      - /:/hostfs:ro
+    networks:
+      - elastic
+
+  heartbeat:
+    image: docker.elastic.co/beats/heartbeat:7.2.0
+    command: --strict.perms=false
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    # volumes:
+    #   - ${PWD}/configs/heartbeat.docker.yml:/usr/share/heartbeat/heartbeat.yml
+    networks:
+      - elastic
+
+  packetbeat:
+    image: docker.elastic.co/beats/packetbeat:7.2.0
+    command: --strict.perms=false
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    cap_add:
+      - NET_RAW
+      - NET_ADMIN
+    # volumes:
+    #   - ${PWD}/configs/packetbeat.docker.yml:/usr/share/packetbeat/packetbeat.yml
+    networks:
+      - elastic
+
+  filebeat:
+    image: docker.elastic.co/beats/filebeat:7.2.0
+    command: --strict.perms=false
+    environment:
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    ports:
+      - 9000:9000
+    volumes:
+      # - ${PWD}/configs/filebeat.docker.yml:/usr/share/filebeat/filebeat.yml
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - elastic
+  apmserver:
+    image: docker.elastic.co/apm/apm-server:7.2.0
+    command: --strict.perms=false
+    ports:
+      - 8200:8200
+      - 8201:8200
+    environment:
+      - apm-server.host=0.0.0.0
+      - setup.kibana.host=kibana:5601
+      - output.elasticsearch.hosts=["elasticsearch:9200"]
+    # volumes:
+    #   - ${PWD}/configs/apm-server.yml:/usr/share/apm-server/apm-server.yml
+    networks:
+        - elastic
+  app-search:
+    image: docker.elastic.co/app-search/app-search:7.2.0
+    ports:
+      - 3002:3002
+    environment:
+      secret_session_key: supersecretsessionkey
+      elasticsearch.host: http://elasticsearch1:9200/
+      allow_es_settings_modification: "true"
+    networks:
+        - elastic
 
 volumes:
   esdata1:
