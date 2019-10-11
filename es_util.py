@@ -22,8 +22,9 @@ def build_es_action(datum, index_name, es_type, op_type='index'):
 
 
 def build_es_client(
-        host = 'localhost',port=9200
+        host = 'localhost',port=9200,
+        timeout=30
     ):
-    es = Elasticsearch(hosts=[{"host": host, "port": port}],timeout=30)
+    es = Elasticsearch(hosts=[{"host": host, "port": port}],timeout=timeout,max_retries=3, retry_on_timeout=True)
     es.cluster.health(wait_for_status='yellow', request_timeout=1)
     return es
