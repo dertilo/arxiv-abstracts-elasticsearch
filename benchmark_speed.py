@@ -3,7 +3,7 @@ import pandas
 from time import time, sleep
 from util import data_io
 from aminer_to_es_parallel_bulk import populate_es_parallel_bulk
-from aminer_to_es_parallel_pool import populate_es_parallel_pool
+from jsonls_to_es_parallel_pool import populate_es_parallel_pool
 from aminer_to_es_streaming_bulk import populate_es_streaming_bulk
 from es_util import build_es_client
 

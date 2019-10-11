@@ -1,6 +1,6 @@
 from time import sleep, time
 import os
-from aminer_to_es_parallel_pool import populate_es_parallel_pool
+from jsonls_to_es_parallel_pool import populate_es_parallel_pool
 from es_util import build_es_client
 
 if __name__ == "__main__":
