@@ -1,4 +1,5 @@
 version: '3.7'
+# based on: https://github.com/maxyermayank/docker-compose-elasticsearch-kibana/blob/master/docker-compose.yml
 services:
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:7.4.0
