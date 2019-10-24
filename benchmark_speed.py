@@ -70,7 +70,7 @@ if __name__ == "__main__":
 
     files = get_files()
 
-    limit = 10_000
+    limit = 100_000
     speeds = []
     speed = benchmark_speed(
         lambda: populate_es_streaming_bulk(
@@ -80,7 +80,7 @@ if __name__ == "__main__":
     speeds.append({"method": "streaming", "speed": speed, "num-processes": 1})
     print("streaming-speed: %0.2f docs per second" % speed)
 
-    for num_processes in [1, 2]:
+    for num_processes in [1,2,4,8]:
         benchmark_speed_print_and_append(
             speeds=speeds,
             populate_fun=lambda: populate_es_parallel_bulk(
@@ -90,6 +90,7 @@ if __name__ == "__main__":
                 TYPE,
                 limit=limit,
                 num_processes=num_processes,
+                chunk_size=500,
             ),
             num_processes=num_processes,
             method_name="parallel-bulk",
@@ -103,6 +104,7 @@ if __name__ == "__main__":
                 TYPE,
                 limit=int(limit / num_processes),
                 num_processes=num_processes,
+                chunk_size=500,
             ),
             num_processes=num_processes,
             method_name="parallel-pool",

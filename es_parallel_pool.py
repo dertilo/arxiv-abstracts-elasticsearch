@@ -18,10 +18,17 @@ def pop_exception(d):
 def populate_es_parallel_pool(
     files, es_index_name, es_type, limit=None, num_processes=4, chunk_size=500
 ):
+    assert len(files) >= num_processes
+
     def consumer_supplier():
         es_client = build_es_client()
 
         def consumer(file):
+            print(
+                "%s is doing %s; limit: %d"
+                % (multiprocessing.current_process(), file, limit)
+            )
+
             dicts_g = (d for d in data_io.read_jsonl(file, limit=limit))
 
             actions_g = (
