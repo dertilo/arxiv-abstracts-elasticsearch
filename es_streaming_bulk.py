@@ -6,6 +6,7 @@ from tqdm import tqdm
 from util import data_io
 from util.data_io import read_jsonl
 from es_util import build_es_action, build_es_client
+from pathlib import Path
 
 
 def pop_exception(d):
@@ -19,7 +20,7 @@ def populate_es_streaming_bulk(
     es_index_name: str,
     es_type: str,
     limit: int = None,
-    chunk_size: int = 100,
+    chunk_size: int = 500,
 ):
     dicts_g = (d for file in files for d in read_jsonl(file, limit=limit))
     es_actions_g = (
@@ -36,25 +37,30 @@ def populate_es_streaming_bulk(
     data_io.write_jsonl("failed.jsonl", failed_g)
 
 
-if __name__ == "__main__":
-    INDEX_NAME = "test"
-    TYPE = "paper"
-    es_client = build_es_client(host="guntherhamachi")
-
-    es_client.indices.delete(index=INDEX_NAME, ignore=[400, 404])
-    es_client.indices.create(index=INDEX_NAME, ignore=400)
-
-    from pathlib import Path
+def get_files():
     home = str(Path.home())
-    # path = "/docker-share/data/semantic_scholar"
-    path = home+"/gunther/data/semantic_scholar"
+    path = home + "/data/semantic_scholar"
     files = [
         path + "/" + file_name
         for file_name in os.listdir(path)
         if file_name.startswith("s2") and file_name.endswith(".gz")
     ]
+    return files
 
-    populate_es_streaming_bulk(es_client, files, INDEX_NAME, TYPE,chunk_size=100, limit=1000)
+
+if __name__ == "__main__":
+    INDEX_NAME = "test-streaming-bulk"
+    TYPE = "paper"
+    es_client = build_es_client()
+
+    es_client.indices.delete(index=INDEX_NAME, ignore=[400, 404])
+    es_client.indices.create(index=INDEX_NAME, ignore=400)
+
+    files = get_files()
+
+    populate_es_streaming_bulk(
+        es_client, files, INDEX_NAME, TYPE, limit=10_000
+    )
 
     count = es_client.count(
         index=INDEX_NAME, doc_type=TYPE, body={"query": {"match_all": {}}}
