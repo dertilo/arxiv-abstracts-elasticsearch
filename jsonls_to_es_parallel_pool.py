@@ -101,5 +101,4 @@ if __name__ == "__main__":
 
     sleep(5)
     count = es.count(index=INDEX_NAME, doc_type=TYPE)['count']
-    count = es.count(index=INDEX_NAME, doc_type=TYPE)['count']
     print("populating %s now containing %d documents took: %0.2f seconds"%(INDEX_NAME,count,dur))
