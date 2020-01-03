@@ -9,11 +9,6 @@ from es_util import build_es_action, build_es_client
 from pathlib import Path
 
 
-def pop_exception(d):
-    d["index"].pop("exception")
-    return d
-
-
 def populate_es_streaming_bulk(
     es_client: Elasticsearch,
     files: List[str],
@@ -22,6 +17,10 @@ def populate_es_streaming_bulk(
     limit: int = None,
     chunk_size: int = 500,
 ):
+    def pop_exception(d):
+        d["index"].pop("exception")
+        return d
+
     dicts_g = (d for file in files for d in read_jsonl(file, limit=limit))
     es_actions_g = (
         build_es_action(d, index_name=es_index_name, es_type=es_type) for d in dicts_g
@@ -37,18 +36,21 @@ def populate_es_streaming_bulk(
     data_io.write_jsonl("failed.jsonl", failed_g)
 
 
-def get_files():
-    home = str(Path.home())
-    path = home + "/data/semantic_scholar"
-    files = [
-        path + "/" + file_name
-        for file_name in os.listdir(path)
-        if file_name.startswith("s2") and file_name.endswith(".gz")
-    ]
-    return files
 
 
 if __name__ == "__main__":
+
+    def get_files():
+        home = str(Path.home())
+        path = home + "/data/semantic_scholar"
+        files = [
+            path + "/" + file_name
+            for file_name in os.listdir(path)
+            if file_name.startswith("s2") and file_name.endswith(".gz")
+        ]
+        return files
+
+
     INDEX_NAME = "test-streaming-bulk"
     TYPE = "paper"
     es_client = build_es_client()
