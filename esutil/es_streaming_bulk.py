@@ -1,29 +1,23 @@
-import os
-from typing import List
-
+from typing import Iterable, Dict
 from elasticsearch import helpers, Elasticsearch
 from tqdm import tqdm
 from util import data_io
-from util.data_io import read_jsonl
-from es_util import build_es_action, build_es_client
-from pathlib import Path
+from esutil.es_util import build_es_action
 
 
 def populate_es_streaming_bulk(
     es_client: Elasticsearch,
-    files: List[str],
+    dicts: Iterable[Dict],
     es_index_name: str,
     es_type: str,
-    limit: int = None,
     chunk_size: int = 500,
 ):
     def pop_exception(d):
         d["index"].pop("exception")
         return d
 
-    dicts_g = (d for file in files for d in read_jsonl(file, limit=limit))
     es_actions_g = (
-        build_es_action(d, index_name=es_index_name, es_type=es_type) for d in dicts_g
+        build_es_action(d, index_name=es_index_name, es_type=es_type) for d in dicts
     )
     results_g = helpers.streaming_bulk(
         es_client,
@@ -34,37 +28,3 @@ def populate_es_streaming_bulk(
     )
     failed_g = (pop_exception(d) for ok, d in tqdm(results_g) if not ok)
     data_io.write_jsonl("failed.jsonl", failed_g)
-
-
-
-
-if __name__ == "__main__":
-
-    def get_files():
-        home = str(Path.home())
-        path = home + "/data/semantic_scholar"
-        files = [
-            path + "/" + file_name
-            for file_name in os.listdir(path)
-            if file_name.startswith("s2") and file_name.endswith(".gz")
-        ]
-        return files
-
-
-    INDEX_NAME = "test-streaming-bulk"
-    TYPE = "paper"
-    es_client = build_es_client()
-
-    es_client.indices.delete(index=INDEX_NAME, ignore=[400, 404])
-    es_client.indices.create(index=INDEX_NAME, ignore=400)
-
-    files = get_files()
-
-    populate_es_streaming_bulk(
-        es_client, files, INDEX_NAME, TYPE, limit=10_000
-    )
-
-    count = es_client.count(
-        index=INDEX_NAME, doc_type=TYPE, body={"query": {"match_all": {}}}
-    )["count"]
-    print("you've got an es-index of %d documents" % count)

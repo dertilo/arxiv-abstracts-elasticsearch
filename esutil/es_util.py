@@ -1,17 +1,15 @@
 import hashlib
 import json
-import multiprocessing
-import traceback
-from queue import Queue
-from typing import List
 
 from elasticsearch import Elasticsearch
-from elasticsearch.helpers import expand_action, _process_bulk_chunk, _chunk_actions
 
 
 def build_es_action(datum, index_name, es_type, op_type="index"):
+    def empty_string_to_None(v):
+        return None if isinstance(v, str) and len(v) == 0 else v
+
     _source = {
-        k: None if isinstance(v, str) and len(v) == 0 else v for k, v in datum.items()
+        k: empty_string_to_None(v) for k, v in datum.items()
     }
     doc = {
         "_id": hashlib.sha1(json.dumps(_source).encode("utf-8")).hexdigest(),
