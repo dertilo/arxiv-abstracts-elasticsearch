@@ -16,8 +16,17 @@ def pop_exception(d):
 
 
 def populate_es_parallel_pool(
-    files, es_index_name, es_type, limit=None, num_processes=4, chunk_size=1_000
+    files,
+    es_index_name,
+    es_type,
+    limit=None,
+    process_fun=lambda x: x,
+    num_processes=4,
+    chunk_size=1_000,
 ):
+    STATE_INDEX_NAME = es_index_name + "_state"
+    STATE_TYPE = "file_state"
+
     def consumer_supplier():
         es_client = build_es_client()
 
@@ -26,8 +35,14 @@ def populate_es_parallel_pool(
                 STATE_INDEX_NAME, file, body={"doc": keyvalue}, doc_type=STATE_TYPE,
             )
 
+        def try_to_process(datum):
+            try:
+                return process_fun(datum)
+            except:
+                return datum
+
         def consumer(file):
-            num_to_skip = es.get_source(
+            num_to_skip = es_client.get_source(
                 index=STATE_INDEX_NAME, id=file, doc_type=STATE_TYPE
             )["line"]
             process_name = multiprocessing.current_process().name
@@ -35,13 +50,17 @@ def populate_es_parallel_pool(
                 "%s is skipping %d lines in file: %s "
                 % (process_name, num_to_skip, file)
             )
-            actions_g = (
-                build_es_action(d, es_index_name, es_type, op_type="index")
-                for d in data_io.read_jsonl(file, limit=limit, num_to_skip=num_to_skip)
-            )
+
             results_g = helpers.streaming_bulk(
                 es_client,
-                actions_g,
+                actions=(
+                    build_es_action(
+                        try_to_process(d), es_index_name, es_type, op_type="index"
+                    )
+                    for d in data_io.read_jsonl(
+                        file, limit=limit, num_to_skip=num_to_skip
+                    )
+                ),
                 chunk_size=chunk_size,
                 yield_ok=True,
                 raise_on_error=False,
@@ -75,14 +94,17 @@ def populate_es_parallel_pool(
         [consumer(file) for file in files]
 
 
-def setup_index(es_client, files, from_scratch=False, mapping=None):
+def setup_index(es_client, files, INDEX_NAME,TYPE, from_scratch=False, mapping=None):
+    STATE_INDEX_NAME = INDEX_NAME + "_state"
+    STATE_TYPE = "file_state"
 
     if from_scratch:
         es_client.indices.delete(index=INDEX_NAME, ignore=[400, 404])
         es_client.indices.delete(index=STATE_INDEX_NAME, ignore=[400, 404])
 
-    es_client.indices.create(index=STATE_INDEX_NAME, ignore=400)
+    sleep(3)
     es_client.indices.create(index=INDEX_NAME, ignore=400, body=mapping)
+    es_client.indices.create(index=STATE_INDEX_NAME, ignore=400)
     sleep(3)
 
     def build_es_action(datum, index_name, es_type, op_type="index"):
@@ -121,11 +143,12 @@ def setup_index(es_client, files, from_scratch=False, mapping=None):
             for file in files
         ]
     )
-    count = es.count(index=INDEX_NAME, doc_type=TYPE)["count"]
-    if sum_in_state != count:
-        print(sum_in_state)
-        print(count)
-        assert False
+    if sum_in_state>0:
+        count = es_client.count(index=INDEX_NAME, doc_type=TYPE)["count"]
+        if sum_in_state != count:
+            print(sum_in_state)
+            print(count)
+            assert False
 
 
 if __name__ == "__main__":
@@ -143,13 +166,11 @@ if __name__ == "__main__":
     INDEX_NAME = "test-parallel-pool"
     TYPE = "paper"
 
-    STATE_INDEX_NAME = INDEX_NAME + "_state"
-    STATE_TYPE = "file_state"
     es = build_es_client()
 
     files = get_files()
 
-    setup_index(es, files, from_scratch=False)
+    setup_index(es, files, INDEX_NAME,TYPE, from_scratch=False)
 
     start = time()
     num_processes = 8
