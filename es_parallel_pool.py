@@ -6,7 +6,7 @@ from elasticsearch import helpers
 from util import data_io
 from util.consume_with_pool import pool_consume
 
-from es_util import build_es_action, build_es_client
+from esutil.es_util import build_es_client, build_es_action
 
 
 def pop_exception(d):

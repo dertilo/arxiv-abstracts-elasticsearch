@@ -5,11 +5,13 @@ from typing import List
 import pandas
 from time import time, sleep
 
+from util.data_io import read_jsonl
+
 from es_parallel_bulk import populate_es_parallel_bulk
 from es_parallel_pool import populate_es_parallel_pool
-from es_streaming_bulk import populate_es_streaming_bulk
-from util import data_io
-from es_util import build_es_client
+
+from esutil.es_streaming_bulk import populate_es_streaming_bulk
+from esutil.es_util import build_es_client
 
 INDEX_NAME = "test"
 TYPE = "paper"
@@ -42,19 +44,6 @@ def benchmark_speed(populate_fun):
     return speed
 
 
-def benchmark_speed_print_and_append(
-    speeds: List, populate_fun, method_name: str, num_processes: int
-):
-    speed = benchmark_speed(populate_fun)
-    speeds.append(
-        {"method": method_name, "speed": speed, "num-processes": num_processes}
-    )
-    print(
-        "%d processes %s-speed: %0.2f docs per second"
-        % (num_processes, method_name, speed)
-    )
-
-
 def get_files():
     home = str(Path.home())
     path = home + "/data/semantic_scholar"
@@ -66,23 +55,45 @@ def get_files():
     return files
 
 
+def give_es_some_time():
+    # not sure whether this is needed
+    sleep(10)
+
+
 if __name__ == "__main__":
 
     files = get_files()
 
-    limit = 100_000
+    limit = 10_000
     speeds = []
+
+    def benchmark_speed_print_and_append(
+        populate_fun, method_name: str, num_processes: int
+    ):
+        speed = benchmark_speed(populate_fun)
+        speeds.append(
+            {"method": method_name, "speed": speed, "num-processes": num_processes}
+        )
+        print(
+            "%d processes %s-speed: %0.2f docs per second"
+            % (num_processes, method_name, speed)
+        )
+
     speed = benchmark_speed(
         lambda: populate_es_streaming_bulk(
-            build_es_client(), [files[0]], INDEX_NAME, TYPE, limit=limit
+            build_es_client(),
+            (d for d in read_jsonl(files[0], limit=limit)),
+            INDEX_NAME,
+            TYPE,
         )
     )
     speeds.append({"method": "streaming", "speed": speed, "num-processes": 1})
     print("streaming-speed: %0.2f docs per second" % speed)
+    give_es_some_time()
 
-    for num_processes in [1,2,4,8]:
+    for num_processes in [1, 2, 4]:
+        give_es_some_time()
         benchmark_speed_print_and_append(
-            speeds=speeds,
             populate_fun=lambda: populate_es_parallel_bulk(
                 build_es_client(),
                 [files[0]],
@@ -90,21 +101,20 @@ if __name__ == "__main__":
                 TYPE,
                 limit=limit,
                 num_processes=num_processes,
-                chunk_size=500,
+                chunk_size=1000,
             ),
             num_processes=num_processes,
             method_name="parallel-bulk",
         )
-
+        give_es_some_time()
         benchmark_speed_print_and_append(
-            speeds=speeds,
             populate_fun=lambda: populate_es_parallel_pool(
                 files[:num_processes],
                 INDEX_NAME,
                 TYPE,
                 limit=int(limit / num_processes),
                 num_processes=num_processes,
-                chunk_size=500,
+                chunk_size=1000,
             ),
             num_processes=num_processes,
             method_name="parallel-pool",

@@ -6,8 +6,9 @@ from tqdm import tqdm
 from util import data_io
 from util.data_io import read_jsonl
 
-from es_util import build_es_action, build_es_client
 from pathlib import Path
+
+from esutil.es_util import build_es_action, build_es_client
 
 
 def pop_exception(d):
