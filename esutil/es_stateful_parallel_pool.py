@@ -3,6 +3,7 @@ import os
 from pathlib import Path
 from time import sleep, time
 from elasticsearch import helpers
+from typing import List
 from util import data_io
 from util.consume_with_pool import pool_consume
 
@@ -94,7 +95,9 @@ def populate_es_parallel_pool(
         [consumer(file) for file in files]
 
 
-def setup_index(es_client, files, INDEX_NAME,TYPE, from_scratch=False, mapping=None):
+def setup_index(
+    es_client, files: List[str], INDEX_NAME, TYPE, from_scratch=False, mapping=None
+):
     STATE_INDEX_NAME = INDEX_NAME + "_state"
     STATE_TYPE = "file_state"
 
@@ -143,7 +146,7 @@ def setup_index(es_client, files, INDEX_NAME,TYPE, from_scratch=False, mapping=N
             for file in files
         ]
     )
-    if sum_in_state>0:
+    if sum_in_state > 0:
         count = es_client.count(index=INDEX_NAME, doc_type=TYPE)["count"]
         if sum_in_state != count:
             print(sum_in_state)
@@ -170,7 +173,7 @@ if __name__ == "__main__":
 
     files = get_files()
 
-    setup_index(es, files, INDEX_NAME,TYPE, from_scratch=False)
+    setup_index(es, files, INDEX_NAME, TYPE, from_scratch=False)
 
     start = time()
     num_processes = 8
