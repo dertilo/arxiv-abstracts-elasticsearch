@@ -16,27 +16,28 @@ def pop_exception(d):
 
 
 def populate_es_parallel_pool(
-    files, es_index_name, es_type, limit=None, num_processes=4,chunk_size=1_000
+    files, es_index_name, es_type, limit=None, num_processes=4, chunk_size=1_000
 ):
     def consumer_supplier():
         es_client = build_es_client()
+
+        def update_state(file, keyvalue):
+            es_client.update(
+                STATE_INDEX_NAME, file, body={"doc": keyvalue}, doc_type=STATE_TYPE,
+            )
 
         def consumer(file):
             num_to_skip = es.get_source(
                 index=STATE_INDEX_NAME, id=file, doc_type=STATE_TYPE
             )["line"]
+            process_name = multiprocessing.current_process().name
             print(
                 "%s is skipping %d lines in file: %s "
-                % (multiprocessing.current_process(), num_to_skip, file)
+                % (process_name, num_to_skip, file)
             )
-            dicts_g = (
-                d
-                for d in data_io.read_jsonl(file, limit=limit, num_to_skip=num_to_skip)
-            )
-
             actions_g = (
                 build_es_action(d, es_index_name, es_type, op_type="index")
-                for d in dicts_g
+                for d in data_io.read_jsonl(file, limit=limit, num_to_skip=num_to_skip)
             )
             results_g = helpers.streaming_bulk(
                 es_client,
@@ -52,29 +53,15 @@ def populate_es_parallel_pool(
                 if not ok and "index" in d:
                     print("shit")
                 if k % 1000 == 0:
-                    es_client.update(
-                        STATE_INDEX_NAME,
-                        file,
-                        body={"doc": {"line": counter}},
-                        doc_type=STATE_TYPE,
-                    )
+                    update_state(file, {"line": counter})
 
-            es_client.update(
-                STATE_INDEX_NAME,
-                file,
-                body={"doc": {"line": counter}},
-                doc_type=STATE_TYPE,
-            )
+            update_state(file, {"line": counter})
             if limit is None or counter < limit:
-                es_client.update(
-                    STATE_INDEX_NAME,
-                    file,
-                    body={"doc": {"done": True}},
-                    doc_type=STATE_TYPE,
-                )
+                update_state(file, {"done": True})
+
             print(
                 "%s is done; inserted %d new docs!"
-                % (multiprocessing.current_process(), counter - num_to_skip)
+                % (process_name, counter - num_to_skip)
             )
 
         return consumer
@@ -88,14 +75,14 @@ def populate_es_parallel_pool(
         [consumer(file) for file in files]
 
 
-def setup_index(es_client, files, from_scratch=False):
+def setup_index(es_client, files, from_scratch=False, mapping=None):
 
     if from_scratch:
         es_client.indices.delete(index=INDEX_NAME, ignore=[400, 404])
         es_client.indices.delete(index=STATE_INDEX_NAME, ignore=[400, 404])
 
     es_client.indices.create(index=STATE_INDEX_NAME, ignore=400)
-    es_client.indices.create(index=INDEX_NAME, ignore=400)
+    es_client.indices.create(index=INDEX_NAME, ignore=400, body=mapping)
     sleep(3)
 
     def build_es_action(datum, index_name, es_type, op_type="index"):
@@ -141,18 +128,18 @@ def setup_index(es_client, files, from_scratch=False):
         assert False
 
 
-def get_files():
-    home = str(Path.home())
-    path = home + "/data/semantic_scholar"
-    files = [
-        path + "/" + file_name
-        for file_name in os.listdir(path)
-        if file_name.startswith("s2") and file_name.endswith(".gz")
-    ]
-    return files
-
-
 if __name__ == "__main__":
+
+    def get_files():
+        home = str(Path.home())
+        path = home + "/data/semantic_scholar"
+        files = [
+            path + "/" + file_name
+            for file_name in os.listdir(path)
+            if file_name.startswith("s2") and file_name.endswith(".gz")
+        ]
+        return files
+
     INDEX_NAME = "test-parallel-pool"
     TYPE = "paper"
 
@@ -167,7 +154,7 @@ if __name__ == "__main__":
     start = time()
     num_processes = 8
     populate_es_parallel_pool(
-        files, INDEX_NAME, TYPE, limit=None, num_processes=num_processes
+        files, INDEX_NAME, TYPE, limit=10_000, num_processes=num_processes
     )
     dur = time() - start
 
