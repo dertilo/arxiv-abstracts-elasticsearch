@@ -153,6 +153,28 @@ def setup_index(
             print(count)
             assert False
 
+    body = '''
+            {
+              "query": {
+                "bool": {
+                  "must": [
+                    {"term": {
+                      "done": {
+                        "value": "true"
+                      }
+                    }}
+                  ]
+                }
+              }
+            }    
+    '''
+    r = es_client.search(index=STATE_INDEX_NAME, body=body,size=10_000)
+
+    files_in_es = set([os.path.split(s['_source']['file'])[1] for s in r['hits']['hits']])
+    not_yet_in_index_files = [f for f in files if os.path.split(f)[1] not in files_in_es]
+    print('got %d files which are not yet in ES-index'%len(not_yet_in_index_files))
+    return not_yet_in_index_files
+
 
 if __name__ == "__main__":
 
@@ -173,7 +195,7 @@ if __name__ == "__main__":
 
     files = get_files()
 
-    setup_index(es, files, INDEX_NAME, TYPE, from_scratch=False)
+    files = setup_index(es, files, INDEX_NAME, TYPE, from_scratch=False)
 
     start = time()
     num_processes = 8
