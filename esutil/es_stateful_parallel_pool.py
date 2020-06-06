@@ -24,12 +24,13 @@ def populate_es_parallel_pool(
     process_fun=lambda x: x,
     num_processes=4,
     chunk_size=1_000,
+    host = "localhost"
 ):
     STATE_INDEX_NAME = es_index_name + "_state"
     STATE_TYPE = "file_state"
 
     def consumer_supplier():
-        es_client = build_es_client()
+        es_client = build_es_client(host=host)
 
         def update_state(file, keyvalue):
             es_client.update(
